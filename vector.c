@@ -1,26 +1,31 @@
 #include "vector.h"
 
-int initPointList(PointList *list) {
-   list->points = (Point *)calloc(list->size, sizeof(Point));
-   return list->points ? 0 : 1;
-}
 
 int resizePointList(PointList *list, size_t new_size) {
-   Point *temp = (Point*)realloc(list->points, new_size * sizeof(Point));
-   if (temp) {
+   int error = 0;
+      Point *temp = (Point*)realloc(list->points, new_size * sizeof(Point));
+   if (!temp) {
+      error = 1;
+   }
+   else {
       list->points = temp;
       list->size = new_size;
-      return 0;
    }
-   return 1;
+   return error;
 }
 
 int appendPointList(PointList *list, Point new_point) {
-   if (resizePointList(list, list->size + 1) == 0) {
+   if (list == NULL)
+      return 1;
+
+   int error = 0;
+
+   if (resizePointList(list, list->size + 1) == 0)
       list->points[list->size - 1] = new_point;
-      return 0;
-   }
-   return 1;
+   else
+      error = 1;
+
+   return error;
 }
 
 int replacePoint(PointList *list, size_t index, Point new_point) {

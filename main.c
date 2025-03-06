@@ -1,6 +1,12 @@
+#include <GL/freeglut.h>
 #include <GL/glut.h>
 #include <stdio.h>
 #include "vector.h" 
+
+typedef struct {
+   PointList list;
+   int mouseDown;
+} AppState;
 
 void display(void);
 void mouseFunc(int button, int state, int x, int y);
@@ -12,37 +18,19 @@ int main(int argc, char **argv) {
    glutInitWindowSize(640, 480);
    glutCreateWindow("GLUT Input Example");
 
-   glutDisplayFunc(display);
 
+   AppState *state = (AppState *)calloc(1, sizeof(AppState));
+   state->list = (PointList){NULL, 0};
+   state->mouseDown = 0;
+
+   glutSetWindowData(state);
+
+
+   glutDisplayFunc(display);
    glutMouseFunc(mouseFunc);
    glutMotionFunc(motionFunc);
 
-
-   PointList list = (PointList){NULL, 1};
-
-   initPointList(&list);
-
-   list.points[0] = (Point){.1f, .1f};
-
-   resizePointList(&list, list.size + 1);
-
-   list.points[1] = (Point){.2f, .1f};
-
-   appendPointList(&list, (Point){.3f, .1f});
-   appendPointList(&list, (Point){.4f, .1f});
-   
-
-   removePoint(&list, 2);
-
-   appendPointList(&list, (Point){.5f, .1f});
-
-   replacePoint(&list, 3, (Point){.6f, .1f});
-   
-   printPointList(list);
-
-   free(list.points);
-
-   //glutMainLoop();
+   glutMainLoop();
    return 0;
 }
 
@@ -54,14 +42,23 @@ void display(void) {
 }
 
 void mouseFunc(int button, int state, int x, int y) {
+   AppState *stateVars = (AppState *)glutGetWindowData();
    if (state == GLUT_DOWN) {
       printf("Mouse button %d pressed at (%d, %d)\n", button, x, y);
+      stateVars->mouseDown = 1;
    } else if (state == GLUT_UP) {
       printf("Mouse button %d released at (%d, %d)\n", button, x, y);
+      stateVars->mouseDown = 0;
+      printPointList(stateVars->list);
+      free(stateVars->list.points);
+      stateVars->list = (PointList){NULL, 0};
    }
 }
 
 void motionFunc(int x, int y) {
    printf("Mouse dragged to (%d, %d)\n", x, y);
+   AppState *state = (AppState *)glutGetWindowData();
+   if (state->mouseDown) {
+      appendPointList(&state->list, (Point){(float)x, (float)y});
+   }
 }
-
