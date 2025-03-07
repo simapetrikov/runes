@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c11 
-LIBS = -lGL -lGLU -lglut
+LIBS = -lGL -lGLU -lglut -lm
 TARGET = mouse_gestures
 SRCS = main.c vector.c
 
