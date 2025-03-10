@@ -70,6 +70,36 @@ Point getCenterPoint(Point array[MAX_POINT_NUM]){
    return center;
 }
 
+Point getMaxPoint(Point array[MAX_POINT_NUM]){
+   Point max = array[0];
+
+   for (size_t i = 1; i < MAX_POINT_NUM; i++) {
+      if (array[i].x > max.x)
+	 max.x = array[i].x;
+      if (array[i].y > max.y)
+	 max.y = array[i].y;
+   }
+   return max;
+}
+
+Point getMinPoint(Point array[MAX_POINT_NUM]){
+   Point min = array[0];
+
+   for (size_t i = 1; i < MAX_POINT_NUM; i++) {
+      if (array[i].x < min.x)
+	 min.x = array[i].x;
+      if (array[i].y < min.y)
+	 min.y = array[i].y;
+   }
+   return min;
+}
+
+Point getRange(Point min, Point max) {
+   Point range;
+   range.x = (max.x - min.x) != 0 ? (max.x - min.x) : 1;
+   range.y = (max.y - min.y) != 0 ? (max.y - min.y) : 1;
+   return range;
+}
 
 
 void printPoint(Point p){
@@ -90,6 +120,12 @@ void printPointList(PointList list) {
    printf("\n");
 }
 
+void copyArray(Point a[MAX_POINT_NUM], Point b[MAX_POINT_NUM]){
+   for (size_t i = 0; i < MAX_POINT_NUM; i++) {
+      a[i].x = b[i].x;
+      a[i].y = b[i].y;
+   }
+}
 
 void resample(PointList list, Point array[MAX_POINT_NUM]) {
    if (list.size == 0) return;
@@ -124,4 +160,23 @@ void resample(PointList list, Point array[MAX_POINT_NUM]) {
       prev = curr;
    }
    array[MAX_POINT_NUM - 1] = list.points[list.size - 1];
+}
+
+float recognize(Point gesture[MAX_POINT_NUM], Point patern[MAX_POINT_NUM]){
+   float diff = 0;
+   for (size_t i = 0; i < MAX_POINT_NUM; i++) {
+      diff += pointsDistance(gesture[i], patern[i]);
+   }
+
+   float avr_diff = diff / MAX_POINT_NUM;
+
+   Point min = getMinPoint(gesture);
+   Point max = getMaxPoint(gesture);
+
+   Point range = getRange(min, max);
+
+   float square = sqrt(range.x * range.x + range.y * range.y);
+   float score = 1 - (2 * avr_diff/square);
+
+   return score;
 }

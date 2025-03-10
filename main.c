@@ -36,10 +36,6 @@ void appStateInit(AppState *state);
 void normalizeNewList(Point array[MAX_POINT_NUM], 
       Point normalizedArray[MAX_POINT_NUM]);
 
-Point getMaxPoint(Point array[MAX_POINT_NUM]);
-Point getMin(Point array[MAX_POINT_NUM]);
-float recognize(Point a[MAX_POINT_NUM], Point b[MAX_POINT_NUM]);
-void copyArray(Point a[MAX_POINT_NUM], Point b[MAX_POINT_NUM]);
 
 void drawPointList(PointList list);
 void drawPointArray(Point array[MAX_POINT_NUM]);
@@ -119,43 +115,6 @@ void mouseFunc(int button, int state, int x, int y) {
    }
 }
 
-void copyArray(Point a[MAX_POINT_NUM], Point b[MAX_POINT_NUM]){
-   for (size_t i = 0; i < MAX_POINT_NUM; i++) {
-      a[i].x = b[i].x;
-      a[i].y = b[i].y;
-   }
-}
-
-Point getMaxPoint(Point array[MAX_POINT_NUM]){
-   Point max = array[0];
-
-   for (size_t i = 1; i < MAX_POINT_NUM; i++) {
-      if (array[i].x > max.x)
-	 max.x = array[i].x;
-      if (array[i].y > max.y)
-	 max.y = array[i].y;
-   }
-   return max;
-}
-
-Point getMinPoint(Point array[MAX_POINT_NUM]){
-   Point min = array[0];
-
-   for (size_t i = 1; i < MAX_POINT_NUM; i++) {
-      if (array[i].x < min.x)
-	 min.x = array[i].x;
-      if (array[i].y < min.y)
-	 min.y = array[i].y;
-   }
-   return min;
-}
-
-Point getRange(Point min, Point max) {
-   Point range;
-   range.x = (max.x - min.x) != 0 ? (max.x - min.x) : 1;
-   range.y = (max.y - min.y) != 0 ? (max.y - min.y) : 1;
-   return range;
-}
 
 void normalizeNewList(Point array[MAX_POINT_NUM], 
       Point normalizedArray[MAX_POINT_NUM]) {
@@ -288,23 +247,4 @@ void drawPointArray(Point array[MAX_POINT_NUM]){
       glVertex2f(array[i].x, array[i].y);
    }
    glEnd();
-}
-
-float recognize(Point gesture[MAX_POINT_NUM], Point patern[MAX_POINT_NUM]){
-   float diff = 0;
-   for (size_t i = 0; i < MAX_POINT_NUM; i++) {
-      diff += pointsDistance(gesture[i], patern[i]);
-   }
-
-   float avr_diff = diff / MAX_POINT_NUM;
-
-   Point min = getMinPoint(gesture);
-   Point max = getMaxPoint(gesture);
-
-   Point range = getRange(min, max);
-
-   float square = sqrt(range.x * range.x + range.y * range.y);
-   float score = 1 - (2 * avr_diff/square);
-
-   return score;
 }
