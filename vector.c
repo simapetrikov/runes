@@ -1,6 +1,5 @@
 #include "vector.h"
 
-
 int resizePointList(PointList *list, size_t new_size) {
    int error = 0;
       Point *temp = (Point*)realloc(list->points, new_size * sizeof(Point));
@@ -42,9 +41,87 @@ int removePoint(PointList* list, size_t index) {
    return resizePointList(list, list->size - 1);
 }
 
+
+float pointsDistance(Point a, Point b){
+   return sqrt(pow(a.x - b.x, 2) +
+	 pow(a.y - b.y, 2));
+}
+
+float pointListPathLength(PointList list){
+   float sum = 0;
+   if(list.size > 1){
+      for (size_t i = 1; i < list.size; i++) {
+	 sum += pointsDistance(list.points[i-1], list.points[i]);
+      }
+   }
+   return sum;
+}
+
+
+Point getCenterPoint(Point array[MAX_POINT_NUM]){
+   Point center = (Point){0, 0};
+   for (size_t i = 0; i < MAX_POINT_NUM; i++) {
+      center.x += array[i].x;
+      center.y += array[i].y;
+   }
+   center.x /= MAX_POINT_NUM;
+   center.y /= MAX_POINT_NUM;
+
+   return center;
+}
+
+
+
+void printPoint(Point p){
+      printf("(%.2f, %.2f)\n", p.x, p.y);
+}
+
+void printPointArray(Point array[MAX_POINT_NUM]){
+   for (size_t i = 0; i < MAX_POINT_NUM; i++) {
+      printf("(%.2f, %.2f) ", array[i].x, array[i].y);
+   }
+   printf("\n");
+}
+
 void printPointList(PointList list) {
    for (size_t i = 0; i < list.size; i++) {
       printf("(%.2f, %.2f) ", list.points[i].x, list.points[i].y);
    }
    printf("\n");
+}
+
+
+void resample(PointList list, Point array[MAX_POINT_NUM]) {
+   if (list.size == 0) return;
+
+   float pathLength = pointListPathLength(list);
+   float stepLength = pathLength / (MAX_POINT_NUM - 1);
+
+   float D = 0.0f;
+   int count = 0;
+
+   array[count++] = list.points[0];
+   Point prev = list.points[0];
+
+   for (size_t i = 1; i < list.size && count < MAX_POINT_NUM; i++) {
+      Point curr = list.points[i];
+      float d = pointsDistance(prev, curr);
+
+      while ((D + d) >= stepLength && count < MAX_POINT_NUM) {
+	 float t = (stepLength - D) / d;
+
+	 Point q;
+	 q.x = prev.x + t * (curr.x - prev.x);
+	 q.y = prev.y + t * (curr.y - prev.y);
+
+	 array[count++] = q;
+	 prev = q;
+
+	 d = pointsDistance(prev, curr);
+	 D = 0.0f;
+      }
+      D += d;
+      prev = curr;
+   }
+   array[MAX_POINT_NUM - 1] = list.points[list.size - 1];
 }
