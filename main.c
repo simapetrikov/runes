@@ -14,6 +14,7 @@
 #define WIDTH 640
 #define HEIGHT 480 
 #define PATERN_SCALE 20
+#define DEBUG 0
 
 typedef struct {
    PointList list; 
@@ -23,7 +24,7 @@ typedef struct {
    int isNewListEmpty;
    Point resolution;
    int check;
-   Point checkList[MAX_POINT_NUM];
+   Point patern[MAX_POINT_NUM];
 } AppState;
 
 void display(void);
@@ -35,7 +36,11 @@ void appStateInit(AppState *state);
 void normalizeNewList(Point array[MAX_POINT_NUM], 
       Point normalizedArray[MAX_POINT_NUM]);
 
+Point getMaxPoint(Point array[MAX_POINT_NUM]);
+Point getMin(Point array[MAX_POINT_NUM]);
+float recognize(Point a[MAX_POINT_NUM], Point b[MAX_POINT_NUM]);
 void copyArray(Point a[MAX_POINT_NUM], Point b[MAX_POINT_NUM]);
+
 void drawPointList(PointList list);
 void drawPointArray(Point array[MAX_POINT_NUM]);
 void drawPointArrayFromCenter(Point array[MAX_POINT_NUM], Point center);
@@ -64,7 +69,8 @@ int main(int argc, char **argv) {
 void mouseFunc(int button, int state, int x, int y) {
    AppState *stateVars = (AppState *)glutGetWindowData();
    if (state == GLUT_DOWN) {
-      printf("Mouse button %d pressed at (%d, %d)\n", button, x, y);
+      if(DEBUG)
+	 printf("Mouse button %d pressed at (%d, %d)\n", button, x, y);
       stateVars->mouseDown = 1;
       stateVars->isNewListEmpty = 1;
       if(stateVars->list.points != NULL){
@@ -72,29 +78,43 @@ void mouseFunc(int button, int state, int x, int y) {
 	 stateVars->list = (PointList){NULL, 0};
       }
    } else if (state == GLUT_UP) {
-      printf("Mouse button %d released at (%d, %d)\n", button, x, y);
+      if(DEBUG)
+	 printf("Mouse button %d released at (%d, %d)\n", button, x, y);
+
       stateVars->mouseDown = 0;
-      printPointList(stateVars->list);
+
+      if(DEBUG)
+	 printPointList(stateVars->list);
 
       resample(stateVars->list, stateVars->newList);
       stateVars->isNewListEmpty = 0;
 
-      printPointArray(stateVars->newList);
+      if(DEBUG)
+	 printPointArray(stateVars->newList);
+
       Point center = getCenterPoint(stateVars->newList);
-      printPoint(center);
+
+      if(DEBUG)
+	 printPoint(center);
 
       normalizeNewList(stateVars->newList, stateVars->normalizedList);
 
       if(!stateVars->check){
-	 copyArray(stateVars->checkList, stateVars->normalizedList);
-	 printf("check arr: ");
-	 printPointArray(stateVars->checkList);
+	 copyArray(stateVars->patern, stateVars->normalizedList);
+	 if(DEBUG)
+	    printPointArray(stateVars->patern);
 	 stateVars->check = 1;
       }
       else {
+	 float score = recognize(stateVars->normalizedList, stateVars->patern);
+	 if(DEBUG)
+	    printf("score = %f\n", score);
+	 else 
+	    printf("%f\n", score);
+	 
 	 stateVars->check = 0;
       }
-      
+
       glutPostRedisplay();
    }
 }
@@ -106,10 +126,7 @@ void copyArray(Point a[MAX_POINT_NUM], Point b[MAX_POINT_NUM]){
    }
 }
 
-
-void normalizeNewList(Point array[MAX_POINT_NUM], 
-      Point normalizedArray[MAX_POINT_NUM]) {
-   Point min = array[0];
+Point getMaxPoint(Point array[MAX_POINT_NUM]){
    Point max = array[0];
 
    for (size_t i = 1; i < MAX_POINT_NUM; i++) {
@@ -117,31 +134,50 @@ void normalizeNewList(Point array[MAX_POINT_NUM],
 	 max.x = array[i].x;
       if (array[i].y > max.y)
 	 max.y = array[i].y;
+   }
+   return max;
+}
 
+Point getMinPoint(Point array[MAX_POINT_NUM]){
+   Point min = array[0];
+
+   for (size_t i = 1; i < MAX_POINT_NUM; i++) {
       if (array[i].x < min.x)
 	 min.x = array[i].x;
       if (array[i].y < min.y)
 	 min.y = array[i].y;
    }
+   return min;
+}
 
-   float rangeX = (max.x - min.x);
-   float rangeY = (max.y - min.y);
-   if (rangeX == 0) rangeX = 1;
-   if (rangeY == 0) rangeY = 1;
+Point getRange(Point min, Point max) {
+   Point range;
+   range.x = (max.x - min.x) != 0 ? (max.x - min.x) : 1;
+   range.y = (max.y - min.y) != 0 ? (max.y - min.y) : 1;
+   return range;
+}
+
+void normalizeNewList(Point array[MAX_POINT_NUM], 
+      Point normalizedArray[MAX_POINT_NUM]) {
+
+   Point min = getMinPoint(array);
+   Point max = getMaxPoint(array);
+
+   Point range = getRange(min, max);
 
    float aspectRatio = (max.x - min.x) / (max.y - min.y);
-   printf("%f\n",aspectRatio);
 
    for (size_t i = 0; i < MAX_POINT_NUM; i++) {
-      normalizedArray[i].x = (2 * (array[i].x - min.x) / rangeX - 1) 
+      normalizedArray[i].x = (2 * (array[i].x - min.x) / range.x - 1) 
 	 * PATERN_SCALE;
-      normalizedArray[i].y = (2 * (array[i].y - min.y) / rangeY - 1)
+      normalizedArray[i].y = (2 * (array[i].y - min.y) / range.y - 1)
 	 * PATERN_SCALE / aspectRatio;
    }
 }
 
 void motionFunc(int x, int y) {
-   printf("Mouse dragged to (%d, %d)\n", x, y);
+   if(DEBUG)
+      printf("Mouse dragged to (%d, %d)\n", x, y);
    AppState *state = (AppState *)glutGetWindowData();
    if (state->mouseDown) {
       appendPointList(&state->list, (Point){(float)x, (float)y});
@@ -160,15 +196,17 @@ void display(void) {
    if (state->list.points != NULL && state->list.size > 0)
       drawPointList(state->list);
 
-   if (!state->isNewListEmpty)
-      drawPointArray(state->newList);
+   if(DEBUG){
 
-   Point center = (Point){(int)state->resolution.x/2, 
-      (int)state->resolution.y/2};
+      if (!state->isNewListEmpty)
+	 drawPointArray(state->newList);
 
-   if (!state->isNewListEmpty)
-      drawPointArrayFromCenter(state->normalizedList, center);
+      Point center = (Point){(int)state->resolution.x/2, 
+	 (int)state->resolution.y/2};
 
+      if (!state->isNewListEmpty)
+	 drawPointArrayFromCenter(state->normalizedList, center);
+   }
 
    glutSwapBuffers();
 }
@@ -191,7 +229,7 @@ void appStateInit(AppState *state){
    state->mouseDown = 0;
    state->resolution = (Point){WIDTH, HEIGHT};
    state->check = 0;
-   
+
    //for (size_t i = 0; i < MAX_POINT_NUM; i++) {
    //   state->newList[i] = NULL;
    //}
@@ -250,4 +288,23 @@ void drawPointArray(Point array[MAX_POINT_NUM]){
       glVertex2f(array[i].x, array[i].y);
    }
    glEnd();
+}
+
+float recognize(Point gesture[MAX_POINT_NUM], Point patern[MAX_POINT_NUM]){
+   float diff = 0;
+   for (size_t i = 0; i < MAX_POINT_NUM; i++) {
+      diff += pointsDistance(gesture[i], patern[i]);
+   }
+
+   float avr_diff = diff / MAX_POINT_NUM;
+
+   Point min = getMinPoint(gesture);
+   Point max = getMaxPoint(gesture);
+
+   Point range = getRange(min, max);
+
+   float square = sqrt(range.x * range.x + range.y * range.y);
+   float score = 1 - (2 * avr_diff/square);
+
+   return score;
 }
