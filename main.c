@@ -15,8 +15,9 @@
 #define WIDTH 640
 #define HEIGHT 480
 #define PATERN_SCALE 20
-#define DEBUG 1
+#define DEBUG 0
 #define FILENAME "patterns"
+#define MAX_PATTERNS 100
 
 typedef struct {
   int appMode;
@@ -30,6 +31,9 @@ typedef struct {
   int check;
   Point patern[MAX_POINT_NUM];
   char patternName[256];
+  Point patterns[MAX_PATTERNS][MAX_POINT_NUM];
+  char patternNames[MAX_PATTERNS][256];
+  int patternsCount;
 } AppState;
 
 void display(void);
@@ -47,6 +51,8 @@ void drawPointArray(Point array[MAX_POINT_NUM]);
 void drawPointArrayFromCenter(Point array[MAX_POINT_NUM], Point center);
 void drawPatternName(const char *name);
 void savePattern(const char *patternName, Point array[MAX_POINT_NUM]);
+void loadPatterns(Point patterns[MAX_PATTERNS][MAX_POINT_NUM], 
+    char patternNames[MAX_PATTERNS][256], int *patternsCount);
 
 int main(int argc, char **argv) {
   if (argc != 2 || !(argv[1][0] == '0' || argv[1][0] == '1')) return -1;
@@ -69,7 +75,11 @@ int main(int argc, char **argv) {
   if (argv[1][0] == '0')
     state->appMode = 0;
   else
-    state->appMode = 0;
+    state->appMode = 1;
+
+  if (state->appMode) {
+    loadPatterns(state->patterns, state->patternNames, &state->patternsCount);
+  }
 
   glutMainLoop();
   return 0;
@@ -97,6 +107,7 @@ void mouseFunc(int button, int state, int x, int y) {
 
     normalizeNewList(stateVars->newList, stateVars->normalizedList);
 
+
     if (DEBUG) {
       printf("\n");
       printPointArray(stateVars->normalizedList);
@@ -112,7 +123,7 @@ void keyboardfunc(unsigned char key, int x, int y) {
 
   if (key == 'q' || key == 'Q' || key == 27) glutLeaveMainLoop();
 
-  if (state->namingMode && !state->mouseDown) {
+  if (state->namingMode && !state->mouseDown && !state->appMode) {
     int len = strlen(state->patternName);
     if (key == 13) {
       state->namingMode = 0;
@@ -129,7 +140,7 @@ void keyboardfunc(unsigned char key, int x, int y) {
   }
 
   if (!state->namingMode && !state->mouseDown && (key == 'S' || key == 's') &&
-      !state->isNewListEmpty) {
+      !state->isNewListEmpty && !state->appMode) {
     state->namingMode = 1;
     state->patternName[0] = '\0';
   }
@@ -284,4 +295,38 @@ void savePattern(const char *patternName, Point array[MAX_POINT_NUM]) {
   }
   fclose(file);
   if (DEBUG) printf("Pattern '%s' saved\n", patternName);
+}
+
+void loadPatterns(Point patterns[MAX_PATTERNS][MAX_POINT_NUM], 
+    char patternNames[MAX_PATTERNS][256], int *patternsCount){
+
+  FILE *file = fopen(FILENAME, "r");
+  if (!file) return;
+
+  *patternsCount = 0;
+  char line[256];
+  while (fgets(line, sizeof(line), file) && *patternsCount < MAX_PATTERNS) {
+    line[strcspn(line, "\r\n")] = 0;
+    strcpy(patternNames[*patternsCount], line);
+    for (size_t i = 0; i < MAX_POINT_NUM; i++) {
+      if (!fgets(line, sizeof(line), file)) break;
+      Point a;
+      if (sscanf(line, "%f, %f", &a.x, &a.y) == 2) {
+        patterns[*patternsCount][i] = a;
+      } else {
+        patterns[*patternsCount][i] = (Point){0, 0};
+      }
+    }
+    (*patternsCount)++;
+  }
+  fclose(file);
+
+  if (DEBUG) {
+    printf("Loaded %d patterns from file.\n", *patternsCount);
+
+    for (size_t i = 0; i < *patternsCount; i++) {
+      printf("%s: \n", patternNames[i]);
+      printPointArray(patterns[i]);
+    }
+  }
 }
