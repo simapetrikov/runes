@@ -16,6 +16,7 @@
 #define HEIGHT 480
 #define PATERN_SCALE 20
 #define DEBUG 1
+#define FILENAME "patterns"
 
 typedef struct {
   int appMode;
@@ -45,6 +46,7 @@ void drawPointList(PointList list);
 void drawPointArray(Point array[MAX_POINT_NUM]);
 void drawPointArrayFromCenter(Point array[MAX_POINT_NUM], Point center);
 void drawPatternName(const char *name);
+void savePattern(const char *patternName, Point array[MAX_POINT_NUM]);
 
 int main(int argc, char **argv) {
   if (argc != 2 || !(argv[1][0] == '0' || argv[1][0] == '1')) return -1;
@@ -107,18 +109,21 @@ void mouseFunc(int button, int state, int x, int y) {
 void keyboardfunc(unsigned char key, int x, int y) {
   AppState *state = (AppState *)glutGetWindowData();
   if (state == NULL) return;
-  
+
+  if (key == 'q' || key == 'Q' || key == 27) glutLeaveMainLoop();
+
   if (state->namingMode && !state->mouseDown) {
     int len = strlen(state->patternName);
     if (key == 13) {
       state->namingMode = 0;
-      printf("%s\n", state->patternName);
+      if (DEBUG) printf("%s\n", state->patternName);
+      savePattern(state->patternName, state->normalizedList);
     } else if (key == 8 || key == 127) {
       if (len > 0) state->patternName[len - 1] = '\0';
     } else {
       if (len < (int)sizeof(state->patternName) - 1) {
-	state->patternName[len] = key;
-	state->patternName[len + 1] = '\0';
+        state->patternName[len] = key;
+        state->patternName[len + 1] = '\0';
       }
     }
   }
@@ -155,7 +160,6 @@ void motionFunc(int x, int y) {
   if (state->mouseDown) {
     appendPointList(&state->list, (Point){(float)x, (float)y});
   }
-
   glutPostRedisplay();
 }
 
@@ -163,9 +167,8 @@ void display(void) {
   glClear(GL_COLOR_BUFFER_BIT);
 
   AppState *state = (AppState *)glutGetWindowData();
-  
-  if (state->namingMode)
-    drawPatternName(state->patternName);
+
+  if (state->namingMode) drawPatternName(state->patternName);
 
   if (state->list.points != NULL && state->list.size > 0)
     drawPointList(state->list);
@@ -261,11 +264,24 @@ void drawPointArray(Point array[MAX_POINT_NUM]) {
 void drawPatternName(const char *name) {
   glColor3f(1.0f, 1.0f, 1.0f);
   glRasterPos2i(10, 20);
-  char prefix[] = "Pattern Name: "; 
+  char prefix[] = "Pattern Name: ";
   for (const char *c = prefix; *c != '\0'; c++) {
     glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
   }
   for (const char *c = name; *c != '\0'; c++) {
     glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
   }
+}
+
+void savePattern(const char *patternName, Point array[MAX_POINT_NUM]) {
+  FILE *file = fopen(FILENAME, "a");
+  if (!file) return;
+
+  fprintf(file, "%s\n", patternName);
+
+  for (size_t i = 0; i < MAX_POINT_NUM; i++) {
+    fprintf(file, "%f, %f\n", array[i].x, array[i].y);
+  }
+  fclose(file);
+  if (DEBUG) printf("Pattern '%s' saved\n", patternName);
 }
