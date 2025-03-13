@@ -6,6 +6,7 @@
 
 #include "vector.h"
 
+#define DEBUG 0
 #define POINT_COLOR 1.0f, 0.0f, 0.0f
 #define LINE_COLOR 0.0f, 0.0f, 1.0f
 #define POINT_COLOR_B 0.0f, 1.0f, 0.0f
@@ -15,9 +16,9 @@
 #define WIDTH 640
 #define HEIGHT 480
 #define PATERN_SCALE 20
-#define DEBUG 0
 #define FILENAME "patterns"
 #define MAX_PATTERNS 100
+#define MIN_SCORE .6f
 
 typedef struct {
   int appMode;
@@ -33,7 +34,7 @@ typedef struct {
   char patternName[256];
   Point patterns[MAX_PATTERNS][MAX_POINT_NUM];
   char patternNames[MAX_PATTERNS][256];
-  int patternsCount;
+  size_t patternsCount;
 } AppState;
 
 void display(void);
@@ -51,8 +52,13 @@ void drawPointArray(Point array[MAX_POINT_NUM]);
 void drawPointArrayFromCenter(Point array[MAX_POINT_NUM], Point center);
 void drawPatternName(const char *name);
 void savePattern(const char *patternName, Point array[MAX_POINT_NUM]);
-void loadPatterns(Point patterns[MAX_PATTERNS][MAX_POINT_NUM], 
-    char patternNames[MAX_PATTERNS][256], int *patternsCount);
+void loadPatterns(Point patterns[MAX_PATTERNS][MAX_POINT_NUM],
+                  char patternNames[MAX_PATTERNS][256], size_t *patternsCount);
+void findBestMatchingPattern(size_t patternsCount,
+                               char patternNames[MAX_PATTERNS][256],
+                               Point patterns[MAX_PATTERNS][MAX_POINT_NUM],
+                               Point normalizedArray[MAX_POINT_NUM]);
+
 
 int main(int argc, char **argv) {
   if (argc != 2 || !(argv[1][0] == '0' || argv[1][0] == '1')) return -1;
@@ -107,6 +113,9 @@ void mouseFunc(int button, int state, int x, int y) {
 
     normalizeNewList(stateVars->newList, stateVars->normalizedList);
 
+    if (stateVars->appMode) {
+      findBestMatchingPattern(stateVars->patternsCount, stateVars->patternNames, stateVars->patterns, stateVars->normalizedList);
+    }
 
     if (DEBUG) {
       printf("\n");
@@ -115,6 +124,30 @@ void mouseFunc(int button, int state, int x, int y) {
 
     glutPostRedisplay();
   }
+}
+
+void findBestMatchingPattern(size_t patternsCount,
+    char patternNames[MAX_PATTERNS][256],
+    Point patterns[MAX_PATTERNS][MAX_POINT_NUM],
+    Point normalizedArray[MAX_POINT_NUM]) {
+  float maxScore = 0;
+  float score;
+  char matchedPatternName[256];
+
+  for (size_t i = 0; i < patternsCount; i++) {
+    if (DEBUG) printf("%s: ", patternNames[i]);
+    score = recognize(normalizedArray, patterns[i]);
+    if (DEBUG) printf("%f\n", score);
+    if (score > maxScore) {
+      maxScore = score;
+      strcpy(matchedPatternName, patternNames[i]);
+    }
+  }
+
+  if (DEBUG) printf("PATTERN: %s: %f\n", matchedPatternName, maxScore);
+  if (maxScore > MIN_SCORE) printf("%s\n", matchedPatternName);
+
+  glutLeaveMainLoop();
 }
 
 void keyboardfunc(unsigned char key, int x, int y) {
@@ -133,8 +166,8 @@ void keyboardfunc(unsigned char key, int x, int y) {
       if (len > 0) state->patternName[len - 1] = '\0';
     } else {
       if (len < (int)sizeof(state->patternName) - 1) {
-        state->patternName[len] = key;
-        state->patternName[len + 1] = '\0';
+	state->patternName[len] = key;
+	state->patternName[len + 1] = '\0';
       }
     }
   }
@@ -149,7 +182,7 @@ void keyboardfunc(unsigned char key, int x, int y) {
 }
 
 void normalizeNewList(Point array[MAX_POINT_NUM],
-                      Point normalizedArray[MAX_POINT_NUM]) {
+    Point normalizedArray[MAX_POINT_NUM]) {
   Point min = getMinPoint(array);
   Point max = getMaxPoint(array);
 
@@ -159,9 +192,9 @@ void normalizeNewList(Point array[MAX_POINT_NUM],
 
   for (size_t i = 0; i < MAX_POINT_NUM; i++) {
     normalizedArray[i].x =
-        (2 * (array[i].x - min.x) / range.x - 1) * PATERN_SCALE;
+      (2 * (array[i].x - min.x) / range.x - 1) * PATERN_SCALE;
     normalizedArray[i].y =
-        (2 * (array[i].y - min.y) / range.y - 1) * PATERN_SCALE / aspectRatio;
+      (2 * (array[i].y - min.y) / range.y - 1) * PATERN_SCALE / aspectRatio;
   }
 }
 
@@ -188,7 +221,7 @@ void display(void) {
     if (!state->isNewListEmpty) drawPointArray(state->newList);
 
     Point center =
-        (Point){(int)state->resolution.x / 2, (int)state->resolution.y / 2};
+      (Point){(int)state->resolution.x / 2, (int)state->resolution.y / 2};
 
     if (!state->isNewListEmpty)
       drawPointArrayFromCenter(state->normalizedList, center);
@@ -209,7 +242,7 @@ void reshape(int w, int h) {
   glLoadIdentity();
 }
 
-void appStateInit(AppState *state) {
+void appStateInit(AppState * state) {
   state->list = (PointList){NULL, 0};
   state->mouseDown = 0;
   state->resolution = (Point){WIDTH, HEIGHT};
@@ -297,9 +330,9 @@ void savePattern(const char *patternName, Point array[MAX_POINT_NUM]) {
   if (DEBUG) printf("Pattern '%s' saved\n", patternName);
 }
 
-void loadPatterns(Point patterns[MAX_PATTERNS][MAX_POINT_NUM], 
-    char patternNames[MAX_PATTERNS][256], int *patternsCount){
-
+void loadPatterns(Point patterns[MAX_PATTERNS][MAX_POINT_NUM],
+    char patternNames[MAX_PATTERNS][256],
+    size_t *patternsCount) {
   FILE *file = fopen(FILENAME, "r");
   if (!file) return;
 
@@ -312,9 +345,9 @@ void loadPatterns(Point patterns[MAX_PATTERNS][MAX_POINT_NUM],
       if (!fgets(line, sizeof(line), file)) break;
       Point a;
       if (sscanf(line, "%f, %f", &a.x, &a.y) == 2) {
-        patterns[*patternsCount][i] = a;
+	patterns[*patternsCount][i] = a;
       } else {
-        patterns[*patternsCount][i] = (Point){0, 0};
+	patterns[*patternsCount][i] = (Point){0, 0};
       }
     }
     (*patternsCount)++;
@@ -322,7 +355,7 @@ void loadPatterns(Point patterns[MAX_PATTERNS][MAX_POINT_NUM],
   fclose(file);
 
   if (DEBUG) {
-    printf("Loaded %d patterns from file.\n", *patternsCount);
+    printf("Loaded %d patterns from file.\n", (int)*patternsCount);
 
     for (size_t i = 0; i < *patternsCount; i++) {
       printf("%s: \n", patternNames[i]);
